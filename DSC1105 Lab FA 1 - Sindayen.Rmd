@@ -1,0 +1,70 @@
+---
+title: "Lab Formative Assessment 1"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-01-25"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+```
+
+## 1. Create a histogram using the diamonds dataset.
+## Note: Re-write this plot using the layer() function instead of geom_histogram(), as demonstrated in class.
+
+```{r}
+ggplot(diamonds) +
+ layer(
+     mapping = aes(x = carat),
+     stat = "bin",
+     geom = "bar",
+     position = "stack"
+ ) +
+ggtitle("1. Histogram of Diamond Carat")
+```
+
+## 2. Recall that a histogram is a plot that uses stat_bin rather than stat_identity.
+
+## Note: Modify your histogram from Question 1 so that it uses a different geom, such as geom_line() or geom_point(), while still relying on stat_bin.
+
+```{r}
+ggplot(diamonds) +
+ layer(
+     mapping = aes(x = carat),
+     stat = "bin",
+     geom = "line",
+     position = "identity"
+ ) +
+ggtitle("2. Histogram using line geometry")
+```
+
+## 3. Using the histogram with bars from Question 1, add an aesthetic mapping based on one of the factor variables in the dataset (e.g., cut, color, or clarity).
+## Note: Apply this mapping to either the fill or color aesthetic.
+```{r}
+ggplot(diamonds) +
+ layer(
+     mapping = aes(x = carat, fill = cut),
+     stat = "bin",
+     geom = "bar",
+     position = "stack"
+ ) +
+ggtitle("3. Histogram of Diamond Carat by Cut")
+```
+
+## 4. What is the default position adjustment used in a histogram?
+## Note: Change the position adjustment in the histogram you created in Question 3 to a different option (hint: try dodge), and observe how the plot changes.
+```{r}
+ggplot(diamonds) +
+ layer(
+     mapping = aes(x = carat, fill = cut),
+     stat = "bin",
+     geom = "bar",
+     position = "dodge"
+ ) +
+ggtitle("4. Histogram of Diamond Carat by Cut using (dodge)")
+```
+
