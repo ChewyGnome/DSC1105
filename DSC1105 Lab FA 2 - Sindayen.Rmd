@@ -1,0 +1,112 @@
+---
+title: "Lab Formative Assessment 2"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-01-29"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+The dataset that will be used in this report is the built-in mpg dataset included in the ggplot2 package. 
+```{r}
+data(mpg)
+```
+
+# Data Inspection
+
+Structure of the dataset:
+```{r}
+class(mpg)
+```
+
+First 6 rows of the dataset:
+```{r}
+head(mpg)
+```
+
+# Data Wrangling and Transformation
+```{r}
+mpg_wrangle <- mpg %>%
+  separate(
+    trans,
+    into = c("transmission_type", "gears"),
+    sep = "\\(",
+    remove = FALSE
+  ) %>%
+  mutate(gears = str_remove(gears, "\\)"))
+
+mpg_wrangle <- mpg_wrangle %>%
+  mutate(
+    log_hwy = log(hwy),
+    sqrt_displ = sqrt(displ)
+  )
+
+mpg_wrangle %>% 
+  select(trans, transmission_type, gears, log_hwy, sqrt_displ) %>% 
+  head()
+```
+
+# Visualization
+
+## Histogram of Original Highway Fuel Efficiency
+```{r}
+ggplot(mpg_wrangle, aes(x = hwy)) +
+  geom_histogram(bins = 20) +
+  labs(
+    title = "Histogram of the original fuel efficiency variable",
+    x = "Highway MPG",
+    y = "Frequency"
+  )
+```
+
+## Histogram of the Transformed Highway Fuel Efficiency
+```{r}
+ggplot(mpg_wrangle, aes(x = log_hwy)) +
+  geom_histogram(bins = 20) +
+  labs(
+    title = "Histogram of the transformed fuel efficiency variable",
+    x = "Log(Highway MPG)",
+    y = "Frequency"
+  )
+```
+
+## Q-Q plot of Original Highway MPG
+```{r}
+ggplot(mpg_wrangle, aes(sample = hwy)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Original Highway MPG")
+```
+
+## Q-Q plot of Log-Transformed Highway MPG
+```{r}
+ggplot(mpg_wrangle, aes(sample = log_hwy)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Log-Transformed Highway MPG")
+```
+
+# Interpretation
+In the data provided, the original highway fuel efficiency exhibits a right skewness in the distribution of data, evident in the both the histogram and the Q-Q plot. However, after the application of the logarithmic transformation, it can be seen that the distribution of the data became a lot more balance. This could also be seen in the Q-Q plot of the transformed variable, where it can be seen that the alignment of the points are a lot more standardized, indicating a decreased deviation of the results.
+
+# Reflection
+A log transformation was chosen for highway fuel efficiency due to the fuel economy data showing a skewed distribution of the dataset. The square root transformation of engine displacement helps reduce the influence of large values while preserving interpretability. Concluding this, the transformation of the variable had a massive improvement in normalizing the results. Improvements such as this could be crucial in simplifying the constraints of some certain datasets that rely on consistency and a constant variance.
+
