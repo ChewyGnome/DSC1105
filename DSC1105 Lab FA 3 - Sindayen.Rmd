@@ -1,0 +1,145 @@
+---
+title: "Lab Formative Assessment 3"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-02-02"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE} 
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, echo = TRUE)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+The dataset that will be used in this report is the built-in mpg function in the ggplot2 package. This dataset has the information for the fuel economy information of the 234 car models. The objective of this analysis is to model highway fuel efficiency (hwy) as a function of engine displacement (displ).
+
+```{r}
+data(mpg)
+```
+
+# Data Inspection
+
+Structure of the dataset:
+```{r}
+class(mpg)
+```
+
+First 6 observations of the dataset:
+```{r}
+head(mpg)
+```
+
+# Exploratory Data Analysis
+
+## Variable Identification in the Dataset:
+Response variable: hwy (highway miles per gallon)
+
+Explanatory variable: displ (engine displacement in liters)
+
+## Scatterplot of Highway MPG vs Engine Displacement
+```{r}
+ggplot(mpg, aes(x = displ, y = hwy)) +
+geom_point() +
+labs(
+title = "Highway MPG vs Engine Displacement",
+x = "Engine Displacement (liters)",
+y = "Highway MPG"
+)
+```
+
+Note: In this graph it can be inferred that there is a negative correlation between the two variables, this indicates that vehicles with larger engines tend to have lower highway fuel efficiency.
+
+## Histogram of Highway MPG
+```{r}
+ggplot(mpg, aes(x = hwy)) +
+geom_histogram(bins = 20) +
+labs(
+title = "Histogram of Highway MPG",
+x = "Highway MPG",
+y = "Frequency"
+)
+```
+
+Note: In this graph it shows that the results are skewed on the right side showing not much instances of values that fall under the category, instead most values are concentrated on the range from 15 - 30.
+
+# Simple Linear Regression Model
+
+## Model Fitting
+
+```{r}
+mpg_lm <- lm(hwy ~ displ, data = mpg)
+summary(mpg_lm)
+```
+
+## Model Interpretation
+
+The fitted linear regression model is expressed as
+\[
+hwy = \beta_0 + \beta_1(displ)
+\]
+
+Slope: The estimated slope is negative, this indicates that for every 1-liter increase in engine displacement, the expected highway MPG in turn decreases on average.
+
+Intercept: The intercept represents the predicted highway MPG when engine displacement is zero liters, serving as a reference point for the regression line.
+
+
+# Model Assumptions and Diagnostics
+
+```{r}
+par(mfrow = c(2, 2))
+plot(mpg_lm)
+par(mfrow = c(1, 1))
+```
+
+## Assumption Assessment:
+
+## Linearity
+The plot "Residuals vs Fitted" shows a slight curvature, this suggests that the relationship may not be perfectly linear between the two variables.
+
+## Normality
+The Q–Q Residuals plot shows moderate deviations from the reference line, especially in the tails.
+
+## Constant Variance
+The Scale–Location plot suggests increasing spread of residuals for larger fitted values, this shows potential for heteroscedasticity.
+
+## Explanation
+In conclusion to this part, the provided assumptions of normality have been reasonably satisfied, whilst the assumptions of linearity and constant variance have only been partially met. From this it can be inferred that a transformation of the variables or an alternative model may provide a better fit for the data.
+
+# Transformation and Model Critique
+
+## Justification
+Based on the diagnostic plots from the part 3, the assumptions for linearity and constant variance were not fully satisfied in the original linear regression model. Additionally,  the Residuals vs Fitted plot showed a curved pattern, this suggests a nonlinear relationship between engine displacement and highway fuel efficiency. The Scale–Location plot also showed increasing variability in the residuals as fitted values increased, implying heteroscedasticity.
+
+To address these issues, a logarithmic transformation was applied to the explanatory variable, engine displacement (displ). This transformation is appropriate because the relationship between engine size and fuel efficiency is not strictly linear. At the same time, increases in displacement at smaller engine sizes tend to have a greater impact on fuel efficiency than similar increases at larger engine sizes.
+
+## Refit Model Using Transformed Variable
+
+```{r}
+mpg_lm_log <- lm(hwy ~ log(displ), data = mpg)
+summary(mpg_lm_log)
+```
+
+## Model Comparison and Critique
+
+After applying the log transformation, the diagnostic plots showed results that indicate improved linearity and a more stable residual variance compared to the original model. This suggests that the transformed model better captures the relationship between engine displacement and highway MPG.
+
+However it is also important to note that although the transformed model provides a better fit, it remains a simple model and does not account for other influential variables such as vehicle class or drive-train. These limitations should be considered when interpreting the results.
+
+# Reflection 
+
+In this study, I learned that there is a strong inverse relationship between engine displacement and highway fuel efficiency, with larger engines generally yielding lower MPG. The diagnostics of this study also highlighted to me the importance of rechecking the initial model assumptions to draw out accurate conclusions and interpretations for the data. This exercise proved to be an informative experience how real-world data should be treated without bias and careful validation.
