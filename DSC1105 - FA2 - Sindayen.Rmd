@@ -1,0 +1,106 @@
+---
+title: "Formative Assessment 2"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-02-05"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, echo = TRUE)
+```
+
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+The dataset that the researcher will be employing in this report is the CyTOF dataset. This dataset uses the single-cell protein expression measurements, through this the researcher is able to use simultaneous measurements of 30+ protein markers. The objective of this study is analyze if there is a significant correlation between the median protein expression level and its variability across different protein markers.
+
+```{r}
+cytof <- read_csv("cytof_one_experiment.csv")
+```
+
+# Data Reshaping
+This dataset changed the formatting from wide format to long format using the function pivot_longer. This was used so that one column may represent the protein identity and another may represent the amount for each cell.
+
+```{r}
+cytof_long <- cytof %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "protein",
+    values_to = "amount")
+```
+
+```{r}
+dim(cytof_long)
+```
+
+## Summary of the Statistics
+The median protein level and the median absolute deviation (MAD) were computed for each of the protein markers.
+
+```{r}
+cytof_summary <- cytof_long %>%
+  group_by(protein) %>%
+  summarise(
+    median_amount = median(amount),
+    mad_amount = mad(amount),
+    .groups = "drop"
+  )
+```
+
+```{r}
+head(cytof_summary)
+```
+
+# Spread–Location Plot
+
+```{r}
+ggplot(cytof_summary, aes(x = mad_amount, y = median_amount)) +
+  geom_point() +
+  labs(
+    title = "Spread–Location Plot of Protein Expression",
+    x = "Median Absolute Deviation (MAD)",
+    y = "Median Protein Level"
+  ) +
+  theme_minimal()
+```
+
+## Interpretation
+This plot showed a positive correlation between the median protein expression level and the median absolute deviation. In this study it was found that, protein markers with higher median expression levels tend to exhibit greater variability. This suggests that variability in protein expression increases as the expression level increases.
+
+# Gymnastics Dataset
+
+
+```{r}
+library(dcldata)
+data(example_gymnastics_2)
+
+gym_long <- example_gymnastics_2 %>%
+  pivot_longer(
+    cols = -country,
+    names_to = "event_year",
+    values_to = "score"
+  ) %>%
+  separate(
+    event_year,
+    into = c("event", "year"),
+    sep = "_"
+  )
+
+head(gym_long)
+```
+
+# Conclusion
+In this study, data reshaping techniques were employed to analyze complex datasets, transforming them into tidy formats suitable for the study. The spread–location plot also showed that protein expression variability correlates to the median expression levels, so that as one of the variables increases the other increases as well. Overall, this report highlights the importance of tidy data structures for effective data summarization and visualization. Reinforcing the role of exploratory techniques in understanding variability within complex datasets.
