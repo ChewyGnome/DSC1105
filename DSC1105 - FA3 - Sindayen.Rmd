@@ -1,0 +1,316 @@
+---
+title: "Formative Assessment 3"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-02-21"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(arrow)
+library(lubridate)
+library(broom)
+library(modelr)
+library(robustbase)
+library(ggplot2)
+library(knitr)
+knitr::opts_chunk$set(fig.width = 7, fig.height = 5, echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+
+The dataset that will be used in this report is the 2023 Yellow Taxi Trip Records provided by the NYC Taxi & Limousine Commission (TLC). In this dataset, we have the data regarding the millions of yellow taxi trips throughout the year of 2023. Containing specific details such as the drop off times, trip distance, total fare amount, and etc. The objective of this study is to provide a model function that will calculate the accurate conversion for fare fee to the amount of distance travelled; preferably also taking into account the seasonal differences across fares.  
+
+Datasource: https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+```{r}
+taxi <- read_parquet("Data/2023_yellow/yellow_tripdata_2023-01.parquet")
+
+taxi_clean <- taxi %>%
+  filter(trip_distance > 0,
+         total_amount > 0)
+```
+
+
+# Part 1: Data Import & Preparation
+
+## Data Import & Cleaning
+
+```{r}
+taxi_clean <- taxi_clean
+```
+
+## Variable Derivation
+
+```{r}
+taxi_clean <- taxi_clean %>%
+  mutate(
+    trip_duration_minutes = as.numeric(difftime(tpep_dropoff_datetime,
+                                                tpep_pickup_datetime,
+                                                units = "mins")),
+    fare_per_mile = total_amount / trip_distance,
+    month = factor(month(tpep_pickup_datetime), levels = 1:12, labels = month.abb)
+  )
+``` 
+
+## Output:
+
+## Summary Table of Variables
+
+```{r}
+set.seed(123)
+taxi_sample <- taxi_clean %>% sample_n(100000)
+
+taxi_sample %>%
+  select(trip_distance, total_amount,
+         trip_duration_minutes, fare_per_mile) %>%
+  summary() %>%
+  knitr::kable(digits = 2)
+```
+
+## Scatterplot: Total Fare Amount vs Trip Distance
+```{r}
+ggplot(taxi_sample, aes(x = trip_distance, y = total_amount)) +
+  geom_point(alpha = 0.2) +
+  labs(title = "Total Amount vs Trip Distance",
+       x = "Trip Distance (miles)",
+       y = "Total Amount ($)") +
+  coord_cartesian(xlim = c(0, 50), ylim = c(0, 300))
+```
+
+## Correlation Coefficient
+```{r}
+cor(taxi_sample$trip_distance,
+    taxi_sample$total_amount,
+    use = "complete.obs") %>%
+  round(4) %>%
+  cat("Correlation coefficient:", .)
+```
+
+Interpretation: The correlation coefficient of the model indicates that there is a significant correlation between the trip distance and the fare fee for the ride. This shows that longer trips tend to scale a lot better compared to shorter trips because of the initial base price that each trip is given.
+
+# Part 2: Classical Linear Regression
+
+## Model Fit
+
+```{r}
+lm_model <- lm(total_amount ~ trip_distance, data = taxi_sample)
+
+tidy(lm_model) %>% knitr::kable(digits = 3)
+
+glance(lm_model) %>%
+  select(r.squared) %>%
+  knitr::kable(digits = 4)
+```
+
+## Interpretation:
+The fitted model is:
+$$\text{total\_amount} = \beta_0 + \beta_1 \times \text{trip\_distance} + \varepsilon$$
+
+## Slope ($\beta_1$):
+For each mile travelled, the fare cost also increases in proportion to the distance increase
+
+## Intercept ($\beta_0$):
+Represents the base fare when distance is 0. While R² indicates that trip distance shows a substantial portion of variability in the total fare.
+
+## R²:
+The R² value suggest that there is a proportional increase between total amount and trip distance. With having higher yields of R² value show a stronger explanatory power of the linear model.
+
+## Residuals vs Fitted Plot:
+
+```{r}
+plot(lm_model$fitted.values,
+     lm_model$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+```
+
+## Diagnostics Comments:
+
+## Linearity:
+If the residuals are randomly scattered around zero without a clear pattern, the linearity assumption is reasonably satisfied. In the case that curvature appears, this would suggest a nonlinear relationship between trip_distance and total_amount.
+
+## Heteroskedasticity:
+If the spread of residuals increases as fitted values increase, this indicates heteroskedasticity (non-constant variance). This is more common in datas where longer trips show greater variability in total charges.
+
+# Part 3: Flexible Modeling
+
+## Flexible Model (LOESS)
+
+```{r}
+loess_model <- loess(total_amount ~ trip_distance,
+                     data = taxi_sample,
+                     span = 0.5)
+```
+
+## Plot Comparison: Linear vs Flexible Model
+
+```{r}
+ggplot(taxi_sample,
+       aes(x = trip_distance,
+           y = total_amount)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm",
+              se = FALSE) +
+  geom_smooth(method = "loess",
+              span = 0.3,
+              formula = y ~ x,
+              n = 1000,
+              se = FALSE,
+              color = "red") +
+  labs(title = "Linear vs LOESS Regression",
+       x = "Trip Distance (miles)",
+       y = "Total Amount ($)")
+```
+
+## Performance & interpretation
+
+## Model Performance Comparison (RMSE)
+
+```{r}
+lm_pred <- predict(lm_model, taxi_sample)
+loess_pred <- predict(loess_model, taxi_sample)
+
+rmse_lm <- sqrt(mean((taxi_sample$total_amount - lm_pred)^2))
+rmse_loess <- sqrt(mean((taxi_sample$total_amount - loess_pred)^2))
+
+tibble(Model = c("Linear", "LOESS"),
+       RMSE = c(rmse_lm, rmse_loess)) %>%
+  knitr::kable(digits = 2)
+```
+
+## Interpretation
+The LOESS model shows better performance (lower RMSE) than the linear model. Flexible modeling improves over linear because it captures the non-linear pattern this also has a higher cost per mile at short distances due to the base fare.
+
+# Part 4: Robust Regression & Influence
+
+
+## Influence diagnostics 
+
+```{r}
+aug <- augment(lm_model, taxi_sample) %>%
+  mutate(cooks_d = cooks.distance(lm_model),
+         leverage = hatvalues(lm_model),
+         std_resid = rstandard(lm_model)) %>%
+  arrange(desc(cooks_d)) %>%
+  slice_head(n = 10) %>%
+  select(trip_distance, total_amount, .fitted, .resid, cooks_d, leverage, std_resid)
+
+aug %>% knitr::kable(digits = 3)
+```
+
+## Robust Regression Model
+
+```{r}
+robust_model <- lmrob(total_amount ~ trip_distance, data = taxi_sample, method = "MM")
+
+tidy(robust_model) %>% knitr::kable(digits = 3)
+```
+
+## Model Comparison:
+
+## Coefficients Comparison
+
+```{r}
+bind_cols(
+  Model = c("Classical LM", "Robust MM"),
+  Intercept = c(coef(lm_model)[1], coef(robust_model)[1]),
+  Slope = c(coef(lm_model)[2], coef(robust_model)[2])
+) %>% knitr::kable(digits = 3)
+```
+
+## Predictions at High Distances
+
+```{r}
+newdata <- tibble(trip_distance = c(5, 10, 20, 50))
+
+bind_cols(
+  Distance = newdata$trip_distance,
+  Linear_Pred = predict(lm_model, newdata),
+  Robust_Pred = predict(robust_model, newdata)
+) %>% knitr::kable(digits = 2)
+```
+
+Interpretation: Outliers in taxi data is independent on the time of day, which could sometimes affect the initial predictions that a few people tend to make. Outliers makes it a lot easier for people to make skewed predictions that allow for too much bias in deviation. The robust MM model downweights these extreme observations, giving more stable coefficients and realistic predictions. 
+
+# Part 5: 
+
+## Proper Grouping
+
+```{r}
+taxi_sample <- taxi_sample %>%
+  mutate(quarter = quarter(tpep_pickup_datetime, type = "year.quarter"))
+```
+
+## Separate models
+
+```{r}
+quarter_models <- taxi_sample %>%
+  group_by(quarter) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lm(total_amount ~ trip_distance, data = .x)),
+    tidy_coef = map(model, tidy)
+  )
+
+quarter_slopes <- quarter_models %>%
+  unnest(tidy_coef) %>%
+  filter(term == "trip_distance") %>%
+  select(quarter, estimate, std.error, p.value)
+
+quarter_slopes %>% knitr::kable(digits = 3)
+```
+
+## Combined visualization
+
+```{r}
+ggplot(taxi_sample, aes(x = trip_distance, y = total_amount, color = factor(quarter))) +
+  geom_point(alpha = 0.05, size = 1) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  labs(
+    title = "Combined Linear Fits by Quarter (January 2023 Sample)",
+    subtitle = "Only Q1 shown – full quarters require additional months",
+    x = "Trip Distance (miles)",
+    y = "Total Amount (USD)",
+    color = "Quarter"
+  ) +
+  coord_cartesian(xlim = c(0, 30), ylim = c(0, 150))
+```
+
+## Interpretation
+Based on the data, it is shown that out of the 4; both Q2 and Q3 have the most stable weather whilst the Q1 or Q2 tends to have more competition for their spots (through hazards or other circumstance. Overall, the relationship between distance to fare remains consistent in the NYC yellow Taxi data, this is however not taking into account other external factors that may change the fare fee of the commission.
+
+
+# Part 6: Reflection
+
+1. When is linear modeling inadequate?
+
+2. Why use flexible regression?
+
+3. How do outliers affect interpretation in large datasets?
+
+Linear modeling proves to be an inadequate analytical tool in circumstances and examples that don't have a consistent trend of increase/decrease. It falls short on situations where one would need to make baseless assumptions that may lead to disagreements between different parties. 
+
+By enabling the model to adjust to intricate, non-linear patterns in the data, flexible regression techniques such as polynomial terms, splines, generalized additive models (GAMs), or fully nonlinear approaches overcome these drawbacks. Better approximations of real-world relationships that linear assumptions oversimplify are made possible by this increased flexibility, which frequently results in lower bias, better predictive accuracy, and more explanatory power.
+
+In large datasets, outliers—extreme values far from the main cluster—still influence linear regression, though their relative impact diminishes as sample size grows. In small samples, a single outlier can dramatically skew the regression line, inflating slope estimates, increasing standard errors, and distorting coefficients.
+
+
+
+
