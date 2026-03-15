@@ -1,0 +1,326 @@
+---
+title: "Summative Assessment 1"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-03-15"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(tidyverse) 
+library(ggplot2) 
+library(knitr) 
+library(GGally) 
+library(lattice) 
+library(MASS) 
+library(e1071)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, echo = TRUE)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+The dataset that will be used in this report is the csv file "EDA Ecommerce Assessment". This contains the information of the behavior of how consumers act when making a transaction in an e-commerce platform. Variables such as the number of items purchased, amount of transaction, browsing time, date of transaction, consumer satisfaction scores are all given in the dataset. This dataset also contains demographic variables such as gender and age, which is taken into consideration of analyzing consumer demands. 
+
+The objective of this analysis is to find the common patterns that the consumers practice when making a transaction. This analysis will employ exploration methods such as univariate and bivariate to identify the variables that enable a consumer in making a purchase. 
+
+```{r}
+ecommerce <- read.csv("EDA_Ecommerce_Assessment.csv")
+```
+
+# Data Inspection
+
+## Structure of the Dataset
+
+```{r}
+class(ecommerce)
+```
+
+## First 6 observations of the dataset
+
+```{r}
+head(ecommerce)
+```
+
+## Summary statistics of the dataset
+
+```{r}
+summary(ecommerce)
+```
+
+## Dataset structure
+
+```{r}
+str(ecommerce)
+```
+
+Note: This dataset uses a mixture of both categorical and numerical variables. Variables such as Browsing_Time, Purchase_Amount, Number_of_Items, and Satisfaction_Score are numerical, while variables such as Gender and Category are categorical. These variables will be used in this report as the primary basis in observing customer behavior.
+
+
+# Exploratory Data Analysis
+
+## Variable Identification in the Dataset
+
+Response variable: Purchase_Amount (Amount spent in a transaction)
+
+Primary explanatory variable: Browsing_Time (Amount of time spent spent before making a purcahse)
+
+Additional explanatory variables includes:
+  - Number_of_Items
+  - Satisfaction_Score
+  - Gender
+  - Category
+
+## Histogram of Purchase Amount
+
+```{r}
+ggplot(ecommerce, aes(x = Purchase_Amount)) +
+geom_histogram(bins = 25) +
+labs(
+title = "Histogram of Purchase Amount",
+x = "Purchase Amount (USD)",
+y = "Frequency"
+)
+```
+
+## Boxplot of Purchase Amount
+
+```{r}
+ggplot(ecommerce, aes(y = Purchase_Amount)) +
+geom_boxplot() +
+labs( 
+title = "Boxplot of Purchase Amount", 
+y = "Purchase Amount (USD)"
+)
+```
+
+## Histogram of Number of Items Purchased
+
+```{r}
+ggplot(ecommerce, aes(x = Satisfaction_Score)) +
+geom_histogram(bins = 5) +
+labs(
+title = "Histogram of Customer Satisfaction Score",
+x = "Satisfaction Score",
+y = "Frequency"
+)
+```
+
+
+# Measures of Central Tendency and Spread
+
+```{r}
+mean(ecommerce$Purchase_Amount)
+median(ecommerce$Purchase_Amount)
+
+mode_value <- names(sort(table(ecommerce$Purchase_Amount), decreasing = TRUE))[1]
+mode_value
+
+var(ecommerce$Purchase_Amount)
+sd(ecommerce$Purchase_Amount)
+IQR(ecommerce$Purchase_Amount)
+```
+
+
+# Density Comparison by Gender
+
+## Browsing Time by Gender
+
+```{r}
+ggplot(ecommerce, aes(x = Browsing_Time, fill = Gender)) + 
+geom_density(alpha = 0.5) + 
+labs(
+title = "Density Distribution of Browsing Time by Gender", 
+x = "Browsing Time (minutes)", y = "Density"
+)
+```
+
+## Purchase Amount by Gender
+
+```{r}
+ggplot(ecommerce, aes(x = Purchase_Amount, fill = Gender)) + 
+geom_density(alpha = 0.5) +
+labs(
+title = "Density Distribution of Purchase Amount by Gender",
+x = "Purchase Amount (USD)",
+y = "Density"
+)
+```
+
+
+# Transformation of Browsing Time
+
+## Original Distribution
+
+```{r}
+ggplot(ecommerce, aes(x = Browsing_Time)) +
+geom_histogram(bins = 25) + 
+labs( 
+title = "Original Distribution of Browsing Time", 
+x = "Browsing Time (minutes)", 
+y = "Frequency"
+)
+```
+
+## Log Transformation of Browsing Time
+
+```{r}
+ecommerce$log_browsing <- log(ecommerce$Browsing_Time)
+
+ggplot(ecommerce, aes(x = log_browsing)) +
+  geom_histogram(bins = 25) +
+  labs(
+    title = "Log Transformed Distribution of Browsing Time",
+    x = "Log(Browsing Time)",
+    y = "Frequency"
+  )
+```
+
+
+# Simple Linear Regression Model
+
+## Model Fitting
+
+```{r}
+purchase_lm <- lm(Purchase_Amount ~ Browsing_Time, data = ecommerce)
+summary(purchase_lm)
+```
+
+## Model Interpretation
+
+The fitted linear regression model is expressed as
+
+\[
+Purchase\_Amount = \beta_0 + \beta_1(Browsing\_Time)
+\]
+
+Slope: The estimated output for the slope shows the predicted change in purchase amount for every additional minute spent browsing the website before making a transaction.
+
+Intercept: The intercept represents the predicted purchase amount when browsing time is set to zero minutes.
+
+## Scatter Plot of Purchase Amount vs Browsing Time
+
+```{r}
+ggplot(ecommerce, aes(x = Browsing_Time, y = Purchase_Amount)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Purchase Amount vs Browsing Time",
+    x = "Browsing Time (minutes)",
+    y = "Purchase Amount (USD)"
+  )
+```
+
+
+# Bivariate Analysis
+
+## Purchase Amount vs Number of Items
+
+```{r}
+ggplot(ecommerce, aes(x = Number_of_Items, y = Purchase_Amount)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Purchase Amount vs Number of Items",
+    x = "Number of Items Purchased",
+    y = "Purchase Amount (USD)"
+  )
+```
+
+## Polynomial Regression Model
+
+```{r}
+poly_model <- lm(Purchase_Amount ~ poly(Browsing_Time, 2), data = ecommerce)
+summary(poly_model)
+```
+
+## LOESS Smoothing
+
+```{r}
+ggplot(ecommerce, aes(x = Browsing_Time, y = Purchase_Amount)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  labs(
+    title = "LOESS Smoothing of Purchase Amount vs Browsing Time",
+    x = "Browsing Time (minutes)",
+    y = "Purchase Amount (USD)"
+  )
+```
+
+## Robust Regression
+
+```{r}
+robust_model <- rlm(Purchase_Amount ~ Browsing_Time, data = ecommerce)
+summary(robust_model)
+```
+
+# Trivariate / Hypervariate Analysis
+
+## Interaction Plot
+
+```{r}
+interaction.plot(
+  ecommerce$Category,
+  ecommerce$Browsing_Time,
+  ecommerce$Purchase_Amount,
+  col = 1:5,
+  lwd = 2
+)
+```
+
+## Coplots
+
+```{r}
+coplot(Purchase_Amount ~ Browsing_Time | Category, data = ecommerce)
+```
+
+## Level Plot
+
+```{r}
+levelplot(Purchase_Amount ~ Browsing_Time * Number_of_Items, data = ecommerce)
+```
+
+
+# Multiple Regression Model
+
+## Model Fitting
+
+```{r}
+multi_model <- lm(
+  Purchase_Amount ~ Browsing_Time + Number_of_Items + Satisfaction_Score,
+  data = ecommerce
+)
+
+summary(multi_model)
+```
+
+## Model Interpretation
+
+In this multiple regression model variables such as browsing time, number of items purchased, and customer satisfaction are examined to make an accurate assumption in what factors influence purchase amounts.
+
+# Reflection
+
+This report provided insightful information in regards to consumer behavior when making a transaction. Through the usage of plots, summaries and regression modeling several patterns were observed from consumer behavior in relation to their purchasing habits. From the results there is a direct correlation between the variable of "browsing time" and "purchase amount" this suggests that consumers get more incentive in making a purchase in relation to their time investment. 
+
+The usage of visualization techniques in modelling also helped reveal the distribution of variables and their correlation to one another. Additionally, applying a logarithmic transformation to browsing time allowed for a clearer understanding of its distribution and improved interpretability in the analysis. Another important factor is the regression analysis, fitting simple and multiple regression models making it possible to quantify how certain variables influence purchase behavior.
+
+Concluding this, this activity reinforced the importance of interpretation in complex and multifaceted data. This shows how exploratory data analysis is a crucial first step in analyzing different datasets.
+
+
+
+
+
+
+
+
+
