@@ -1,0 +1,206 @@
+---
+title: "Formative Assessment 4"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-03-23"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(tidyverse) 
+library(ggplot2) 
+library(knitr) 
+library(GGally) 
+library(lattice) 
+library(MASS) 
+library(e1071)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, echo = TRUE)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Dataset
+The dataset that will be used in this report contains chemical measurements of red and white wines. In the previous dataset, the objective was to predict wine quality, for this report the primary focus lies on identifying the difference between red and white wine types.
+
+For this report the variables total_sulfur_dioxide and density were identified to be the primary predictors. 
+
+```{r}
+red_wine <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep = ";")
+white_wine <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv", sep = ";")
+
+red_wine$type <- "red"
+white_wine$type <- "white"
+
+wine <- rbind(red_wine, white_wine)
+
+names(wine) <- gsub("\\.", "_", names(wine))
+
+```
+
+# Data Inspection
+
+## Structure of the Dataset
+
+```{r}
+class(wine)
+```
+
+## First 6 observations of the Dataset
+
+```{r}
+head(wine)
+```
+
+## Summary of the Dataset
+
+```{r}
+summary(wine)
+```
+
+## Dataset structure
+
+```{r}
+str(wine)
+```
+
+
+# Data Cleaning
+
+## Removing Outliers in Density
+
+```{r}
+boxplot(wine$density)
+
+Q1 <- quantile(wine$density, 0.25)
+Q3 <- quantile(wine$density, 0.75)
+IQR_val <- IQR(wine$density)
+
+lower_bound <- Q1 - 1.5 * IQR_val
+upper_bound <- Q3 + 1.5 * IQR_val
+
+wine_clean <- wine %>%
+  filter(density >= lower_bound & density <= upper_bound)
+```
+
+# Exploratory Data Analysis
+
+## Variable Identification
+
+Response variable: wine type (converted to binary)
+
+Primary explanatory variables:
+
+-total_sulfur_dioxide
+-density
+
+## Convert Wine Type to Binary
+
+```{r}
+wine_clean$type_binary <- ifelse(wine_clean$type == "white", 1, 0)
+```
+
+## Scatterplot: Wine Type vs Total Sulfur Dioxide
+
+```{r}
+ggplot(wine_clean, aes(x = total_sulfur_dioxide, y = type_binary)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess") +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  labs(
+    title = "Wine Type vs Total Sulfur Dioxide",
+    x = "Total Sulfur Dioxide",
+    y = "Wine Type (0 = Red, 1 = White)"
+  )
+```
+
+Interpretation:
+The LOESS smoother captures local trends in the data, while the logistic regression smoother gives a more objective interpretation. Differences between the curves indicate potential non-linearity in the relationship.
+
+## Scatterplot: Wine Type vs Density
+
+```{r}
+ggplot(wine_clean, aes(x = density, y = type_binary)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess") +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  labs(
+    title = "Wine Type vs Density",
+    x = "Density",
+    y = "Wine Type (0 = Red, 1 = White)"
+  )
+```
+
+Interpretation:
+The correlation between density and wine type shows a clear distinction, in this plot logistic regression highlights the classification boundaries with LOESS identifying local deviations.
+
+# Logistic Regression Models
+
+## Model 1: No Interaction
+
+```{r}
+model1 <- glm(type_binary ~ density + total_sulfur_dioxide, 
+              data = wine_clean, 
+              family = "binomial")
+
+summary(model1)
+```
+
+## Model 2: With Interaction
+
+```{r}
+model2 <- glm(type_binary ~ density * total_sulfur_dioxide, 
+              data = wine_clean, 
+              family = "binomial")
+
+summary(model2)
+```
+
+# Coplots
+
+## Density conditioned on Total Sulfur Dioxide
+
+```{r}
+coplot(type_binary ~ density | total_sulfur_dioxide, data = wine_clean)
+```
+
+## Total Sulfur Dioxide conditioned on Density
+
+```{r}
+coplot(type_binary ~ total_sulfur_dioxide | density, data = wine_clean)
+```
+
+## Model Comparison Interpretation
+This interaction model allows the effect of density on wine type to vary depending on the level of total sulfur dioxide. This provides a more flexible model compared to the additive model without interaction.
+
+# Reflection
+In this report, the relationship between wine type and key chemical properties were analyzed to see if there is significant correlation between the two. Variables within chemical properties such as density and total sulfur dioxide were observed through the implementation of visualization and modeling technique. From the results of the models it was clear that both played a significant roles in distinguishing between red and white wines. 
+
+Additionally, the use of LOESS and logistic regression smoothers highlights both the local and global patterns in the data. Logistic regression models further quantified these relationships, showing how predictor variables influence the probability of a wine being classified as red or white.
+
+Concluding this activity, it was shown how important the implementation of visualization and statistical modeling in understanding complex datasets.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
