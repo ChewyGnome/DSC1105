@@ -1,0 +1,349 @@
+---
+title: "Formative Assessment 6"
+author: "Sindayen, Lorenzo Danilo V."
+subtitle: "DSC1105 Exploratory Data Analysis"
+date: "2026-04-30"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(caret)
+library(nnet)
+library(e1071)
+library(janitor)
+library(ModelMetrics)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, echo = TRUE)
+```
+
+---
+
+\begin{center}
+\textit{GitHub Link:} \\
+\url{https://github.com/ChewyGnome/DSC1105}
+\end{center}
+
+---
+
+# Data Exploration
+
+The dataset that will be used in this report is referenced from a, e-commerce business, containing data in regards to their behavioral information for customer demographic. In this report, the customers will be segmented into three different categories in: Budget Shopper, Regular Shopper, and Premium Shopper.
+
+This dataset uses multiple variables such as age, annual income, gender, product category purchased, average spend per visit, and number of visits.
+
+## Load Dataset
+
+```{r}
+data <- read.csv("customer_segmentation.csv")
+data <- clean_names(data)
+names(data)
+```
+
+## Data Overview
+
+```{r}
+head(data)
+summary(data)
+str(data)
+```
+
+## Missing Values
+
+```{r}
+colSums(is.na(data))
+```
+
+## Distribution of Age
+
+```{r}
+ggplot(data, aes(x = age)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Age")
+```
+
+Note: This plot provides insight into which customer age group is dominant showing whether the data is skewed towards younger or older individuals.
+
+## Distribution of Annual Income
+
+```{r}
+ggplot(data, aes(x = annual_income_k)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Annual Income")
+```
+
+Note: This plot shows how customer income is distributed falling into the categories of low, middle, or high-income.
+
+## Distribution of Average Spend per Visit
+
+```{r}
+ggplot(data, aes(x =  average_spend_per_visit)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Average Spend per Visit")
+```
+
+Note: This plot shows the spending habits of customers determining whether most customers are low or high spenders. 
+
+## Distribution of Customer Segment
+
+```{r}
+ggplot(data, aes(x = customer_segment)) +
+  geom_bar() +
+  labs(title = "Customer Segment Distribution")
+```
+
+Note: This plot shows how customers are distributed in the categories of Budget, Regular, and Premium segments.
+
+
+# Data Preprocessing
+
+This stage prepares the dataset for modeling by handling missing values, encoding categorical variables, scaling numerical features, and splitting the data.
+
+## Handling Missing Values
+
+```{r}
+data <- na.omit(data)
+```
+
+## Encoding Gender
+
+```{r}
+data$Gender <- as.numeric(as.factor(data$gender))
+```
+
+## One-Hot Encoding Product Category
+
+```{r}
+dummies <- model.matrix(~ product_category_purchased - 1, data = data)
+data$product_category_purchased <- NULL
+data <- cbind(data, dummies)
+```
+
+## Scaling Continuous Variables
+
+```{r}
+numeric_vars <- c("age", "annual_income_k", "average_spend_per_visit")
+data[numeric_vars] <- scale(data[numeric_vars])
+```
+
+## Train-Test Split (80-20)
+
+```{r}
+set.seed(123)
+trainIndex <- caret::createDataPartition(data$customer_segment, p = 0.8, list = FALSE)
+train_data <- data[trainIndex, ]
+test_data <- data[-trainIndex, ]
+```
+
+
+# Model Building
+
+A multinomial logistic regression model is used to classify customers into three segments based on their demographic and behavioral features.
+
+## Multinomial Logistic Regression Model
+
+```{r}
+model <- nnet::multinom(customer_segment ~ ., data = train_data)
+summary(model)
+```
+
+## Cross-Validation for Model Tuning
+
+```{r}
+control <- caret::trainControl(method = "cv", number = 5)
+
+grid <- expand.grid(decay = c(0, 0.001, 0.01, 0.1))
+
+tuned_model <- caret::train(
+  customer_segment ~ .,
+  data = train_data,
+  method = "multinom",
+  trControl = control,
+  tuneGrid = grid,
+  trace = FALSE
+)
+
+tuned_model
+```
+
+Note: Cross-validation is used to evaluate the stability and performance of the model across different subsets of the data, helping ensure that the model generalizes well to unseen data.
+
+
+# Model Evaluation
+This part assesses how well the trained multinomial logistic regression model performs on unseen data using several classification metrics.
+
+## Predictions
+
+```{r}
+predictions <- predict(model, newdata = test_data, type = "class")
+```
+
+## Confusion Matrix
+
+```{r}
+conf_matrix <- caret::confusionMatrix(
+  predictions,
+  as.factor(test_data$customer_segment)
+)
+conf_matrix
+```
+
+Note: This matrix shows how well the model classifies each of the customer segments, highlighting the potential misclassifications between segments.
+
+## Accuracy
+
+```{r}
+conf_matrix$overall["Accuracy"]
+```
+
+Note: This section represents the proportion of correctly classified instances from all predictions.
+
+## Precision, Recall, and F1-Score
+
+```{r}
+conf_matrix$byClass
+```
+
+Notes:
+- Precision measures how many predicted positives are actually correct.
+- Recall measures how many actual positives are correctly identified.
+- F1-score balances precision and recall.
+
+## Log-Loss   
+
+```{r}
+prob_predictions <- predict(model, newdata = test_data, type = "probs")
+actual <- as.factor(test_data$customer_segment)
+log_loss <- ModelMetrics::mlogLoss(actual, prob_predictions)
+log_loss
+```
+
+Note: This section evaluates the confidence level of the model’s predictions.
+
+## Confusion Matrix Visualization
+
+```{r}
+conf_df <- as.data.frame(conf_matrix$table)
+
+ggplot(conf_df, aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  labs(title = "Confusion Matrix Heatmap")
+```
+
+Note: This section helps with making visualization easier to identify where misclassifications may potentially occur.
+
+## Interpretation of Model Coefficients
+
+```{r}
+summary(model)$coefficients
+```
+
+- Most variables have small coefficients, indicating weak individual influence on customer segmentation.
+- Annual income and average spend show slightly negative effects, suggesting that they do not have much bearing over the increase in likelihood of being in the higher segments of the model.
+- Age has a small positive effect, meaning older customers are slightly more likely to be in premium or regular groups.
+- Gender and number of visits have minimal influence on classification.
+- Among the product categories, fashion has a positive influence, while books have a negative influence on higher-value segments.
+
+
+# Model Refinement
+
+This part aims to refine the model by introducing new features and further evaluating its performance.
+
+## Feature Engineering (Interaction Term)
+
+```{r}
+train_data$income_age_interaction <- train_data$annual_income_k * train_data$age
+test_data$income_age_interaction <- test_data$annual_income_k * test_data$age
+```
+
+## Retrain Model with New Feature
+
+```{r}
+refined_model <- nnet::multinom(
+  customer_segment ~ .,
+  data = train_data,
+  trace = FALSE
+)
+```
+
+## Predictions Using Refined Model
+
+```{r}
+refined_predictions <- predict(refined_model, newdata = test_data)
+```
+
+## Confusion Matrix (Refined Model)
+
+```{r}
+refined_conf_matrix <- caret::confusionMatrix(
+  refined_predictions,
+  as.factor(test_data$customer_segment)
+)
+refined_conf_matrix
+```
+
+## Accuracy Comparison
+
+```{r}
+original_accuracy <- conf_matrix$overall["Accuracy"]
+refined_accuracy <- refined_conf_matrix$overall["Accuracy"]
+
+original_accuracy
+refined_accuracy
+```
+
+
+## Cross-Validation (Refined Model)
+
+```{r}
+refined_tuned_model <- caret::train(
+  customer_segment ~ .,
+  data = train_data,
+  method = "multinom",
+  trControl = control,
+  tuneGrid = grid,
+  trace = FALSE
+)
+
+refined_tuned_model
+```
+
+## Refinement Interpretation
+The model was refined by adding an interaction term between annual income and age to capture the combined effects. The refined model was then evaluated and compared to the original model using accuracy and cross-validation to check if there were any significant bearing in the original and the refined. Based on the findings, the refined model had slightly results in comparison to the original model. This suggests that the interaction between income and age provides additional predictive value. Despite this the disparity between the two was not significant, meaning that most predictive power still comes from the original features. Overall, the refinement showed a small positive improvement in model performance. Whilst not particularly significant, this shows that feature interaction can enhance classification but does not drastically change the model’s behavior.
+
+# Reporting
+
+## Model Building and Evaluation
+
+The customer segmentation model was developed using different demographic and financial variables that could affect customer decision making. The dataset was first preprocessed to ensure consistency, including handling missing values and standardizing numerical variables where necessary. 
+
+Afterwards, it was then used to identify the distinct customer segments based on similarity in behavior and attributes. To evaluate performance, a combination of a train-test split and k-fold cross-validation was employed for this report. This approach ensured that the model’s performance was not dependent on a single dataset partition and provided a more reliable estimate of its generalization ability. The model achieved consistent performance across cross-validation folds, with most classification errors occurring between Regular and Premium shoppers, suggesting overlap in spending behavior between these two segments.
+
+Overall, the evaluation showed that the model performs consistently across different data folds, suggesting stable segmentation results. 
+
+## Key Features Influencing Segmentation
+
+- Annual Income: The most influential predictor, strongly separating Budget, Regular, and Premium customers.
+- Age: Moderately influential, with older customers more likely to fall into Premium segments.
+- Income and Age Interaction: Captures combined behavioral effects, improving segmentation accuracy slightly by accounting for joint demographic influence.
+
+
+## Recommendations
+- The incorporation of behavioral variables such as purchase frequency, transaction value, and engagement history to improve segmentation depth.
+- Explore other interaction features beyond age and income to scope out any potential customer patterns.
+- Test alternative clustering or ensemble models to determine whether more advanced methods improve separation quality.
+
+
+
+
+
+
+
+
+
+
